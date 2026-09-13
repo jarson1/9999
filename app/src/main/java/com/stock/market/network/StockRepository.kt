@@ -28,7 +28,7 @@ object StockRepository {
     fun getGlobalSectors(): List<Sector> {
         return try {
             val url = "https://push2.eastmoney.com/api/qt/clist/get?" +
-                    "pn=1&pz=50&po=1&np=1&fltt=2&invt=2&fid=f3&fs=m:90+t:2" +
+                    "pn=1&pz=60&po=1&np=1&fltt=2&invt=2&fid=f12&fs=m:90+t:2" +
                     "&ut=$EASTMONEY_UT" +
                     "&fields=f12,f14,f2,f3,f4,f8,f20,f21,f128,f140,f141"
             val response = ApiClient.get(url) ?: return MockData.getGlobalSectors()

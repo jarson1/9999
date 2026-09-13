@@ -10,17 +10,19 @@ import androidx.fragment.app.Fragment
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.stock.market.databinding.FragmentCapitalFlowBinding
+import com.stock.market.model.Sector
 import com.stock.market.network.StockRepository
 import java.util.Calendar
 
 /**
- * 资金流入板块 - 板块热力图 + 主力资金流入板块排行
+ * 资金流入板块 - 上涨/下跌热力图 + 主力资金流入板块排行
  */
 class CapitalFlowFragment : Fragment() {
 
     private var _binding: FragmentCapitalFlowBinding? = null
     private val binding get() = _binding!!
-    private lateinit var heatAdapter: SectorHeatAdapter
+    private lateinit var heatUpAdapter: SectorHeatAdapter
+    private lateinit var heatDownAdapter: SectorHeatAdapter
     private lateinit var capitalAdapter: SectorCapitalFlowAdapter
     private val handler = Handler(Looper.getMainLooper())
     private val refreshInterval = 60000L // 60秒自动刷新
@@ -43,7 +45,7 @@ class CapitalFlowFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        setupHeatMap()
+        setupHeatMaps()
         setupCapitalList()
         loadData()
 
@@ -63,13 +65,22 @@ class CapitalFlowFragment : Fragment() {
     }
 
     /**
-     * 配置热力图网格
+     * 配置上涨/下跌热力图网格
      */
-    private fun setupHeatMap() {
-        heatAdapter = SectorHeatAdapter()
-        binding.recyclerViewHeat.apply {
+    private fun setupHeatMaps() {
+        // 上涨热力图
+        heatUpAdapter = SectorHeatAdapter()
+        binding.recyclerViewHeatUp.apply {
             layoutManager = GridLayoutManager(requireContext(), 4)
-            adapter = heatAdapter
+            adapter = heatUpAdapter
+            setHasFixedSize(true)
+        }
+
+        // 下跌热力图
+        heatDownAdapter = SectorHeatAdapter()
+        binding.recyclerViewHeatDown.apply {
+            layoutManager = GridLayoutManager(requireContext(), 4)
+            adapter = heatDownAdapter
             setHasFixedSize(true)
         }
     }
@@ -87,21 +98,36 @@ class CapitalFlowFragment : Fragment() {
     }
 
     /**
-     * 加载数据：热力图 + 板块资金流
+     * 加载数据：上涨/下跌热力图 + 板块资金流
      */
     private fun loadData() {
         binding.swipeRefresh.isRefreshing = true
         Thread {
             try {
-                // 并行加载两个数据
-                val sectors = StockRepository.getGlobalSectors()
+                // 获取所有板块
+                val allSectors = StockRepository.getGlobalSectors()
                 val capitalFlows = StockRepository.getSectorCapitalFlow()
 
+                // 分成上涨和下跌
+                val upSectors = allSectors.filter { it.isUp }
+                    .sortedByDescending { it.changePercent }
+                    .take(16)
+                val downSectors = allSectors.filter { !it.isUp }
+                    .sortedBy { it.changePercent }
+                    .take(16)
+
                 activity?.runOnUiThread {
-                    // 热力图取前24个板块
-                    heatAdapter.submitList(sectors.take(24))
+                    // 上涨热力图
+                    heatUpAdapter.submitList(upSectors)
+                    binding.tvUpCount.text = "${upSectors.size}个"
+
+                    // 下跌热力图
+                    heatDownAdapter.submitList(downSectors)
+                    binding.tvDownCount.text = "${downSectors.size}个"
+
                     // 板块资金流列表
                     capitalAdapter.submitList(capitalFlows)
+
                     // 更新市场状态
                     updateMarketStatus()
                     binding.swipeRefresh.isRefreshing = false
